@@ -1,0 +1,4 @@
+# Qibla Finder Plus currently uses only Python's standard library.
+# No pip-installed Python packages are required.
+#
+# The browser UI loads Leaflet from a CDN, and map tiles/city lookup need internet.
