@@ -1,6 +1,6 @@
 # Qibla
 
-Qibla is a mobile-friendly Qibla direction and prayer-time utility. The current version lives in [`qibla_v2/`](qibla_v2/), with a web app that can run locally in Termux and an Android Studio project. Both share the same JavaScript calculation engine.
+Qibla is a mobile-friendly Qibla direction and prayer-time utility. The repository contains a web app that can run locally in Termux and an Android Studio project. Both share the same JavaScript calculation engine.
 
 ## Features
 
@@ -24,7 +24,7 @@ Install Termux, then run:
 pkg update
 pkg install git python
 git clone https://github.com/TheRealGudPerson/Qibla.git
-cd Qibla/qibla_v2
+cd Qibla
 python -m unittest -v
 python server.py
 ```
@@ -52,12 +52,12 @@ Then open **http://127.0.0.1:8765** in a browser on the same computer.
 
 ## Build the Android app
 
-Open the `qibla_v2/android/` folder in Android Studio with Android SDK 35 installed. Sync Gradle, then select **Build → Build APK(s)**.
+Open the `android/` folder in Android Studio with Android SDK 35 installed. Sync Gradle, then select **Build → Build APK(s)**.
 
 On a computer with Gradle and the required Android SDK configured, you can also run:
 
 ```sh
-cd qibla_v2/android
+cd android
 gradle assembleDebug
 ```
 
@@ -76,10 +76,9 @@ The expected debug APK path is `qibla_v2/android/app/build/outputs/apk/debug/app
 
 ## Project layout
 
-- `qibla_v2/qibla_core.py` — Python geographic and prayer-time calculations.
-- `qibla_v2/server.py` — local HTTP server and API.
-- `qibla_v2/web/` — mobile web app, JavaScript engine, PWA manifest, and service worker.
-- `qibla_v2/android/` — Android Studio project.
-- `qibla_v2/test_qibla_core.py` and `qibla_v2/test_qibla_engine.js` — calculation tests.
+- `qibla_core.py` — Python geographic and prayer-time calculations.
+- `server.py` — local HTTP server and API.
+- `web/` — mobile web app, JavaScript engine, PWA manifest, and service worker.
+- `android/` — Android Studio project.
+- `test_qibla_core.py` and `test_qibla_engine.js` — calculation tests.
 
-See the [Qibla 2.0 README](qibla_v2/README.md) for more detailed setup notes.
