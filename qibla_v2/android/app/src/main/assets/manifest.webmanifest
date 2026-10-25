@@ -1,0 +1,14 @@
+{
+  "id": "/",
+  "name": "Qibla",
+  "short_name": "Qibla",
+  "description": "Qibla direction, prayer times, and offline tools.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#091510",
+  "theme_color": "#10271f",
+  "orientation": "portrait-primary",
+  "icons": [{"src":"qibla-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}],
+  "categories": ["lifestyle", "utilities"]
+}
