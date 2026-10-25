@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const q = require('./web/qibla-engine.js');
+assert.ok(Math.abs(q.bearing(30.4383, -84.2807) - 53.1) < 1);
+assert.equal(q.direction(0), 'N');
+assert.equal(q.direction(180), 'S');
+assert.ok(q.distance(30.4383, -84.2807) > 10000);
+assert.throws(() => q.bearing(91, 0), RangeError);
+const p = q.prayerTimes(30.4383, -84.2807, new Date('2026-10-25T16:00:00Z'), {method:'ISNA', asr:'hanafi', utcOffsetMinutes:-240});
+assert.equal(p.asr, 'Hanafi');
+assert.deepEqual(Object.keys(p.times), ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha']);
+for (const t of Object.values(p.times)) assert.match(t, /^\d{2}:\d{2}$/);
+console.log('Qibla JavaScript engine tests passed.');

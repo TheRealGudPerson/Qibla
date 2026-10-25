@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10271f">
+<meta name="description" content="Qibla direction, prayer times, and offline Islamic utilities.">
+<link rel="manifest" href="/manifest.webmanifest">
+<title>Qibla</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--bg:#091510;--panel:#13251c;--panel2:#20382b;--text:#edf7ef;--muted:#a8b9ad;--accent:#7de0a4;--line:#30483b;--warn:#ffd27a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,sans-serif}main{max-width:820px;margin:auto;padding:16px 14px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 16px}h1{font-size:1.65rem;margin:0}h2{font-size:1.05rem;margin:0 0 10px}.muted,.hint{color:var(--muted);font-size:.88rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:15px;margin:12px 0}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button,input,select{font:inherit;border-radius:11px;border:1px solid var(--line);padding:11px 12px}button{background:var(--panel2);color:var(--text);font-weight:650;cursor:pointer}button.primary{background:var(--accent);color:#092016;border-color:var(--accent)}input,select{background:#09140f;color:var(--text);min-width:0;flex:1;width:100%}
+.status{border-radius:999px;padding:5px 9px;background:var(--panel2);font-size:.8rem}.metric{font-size:2.5rem;font-weight:850;color:var(--accent);letter-spacing:-.04em}.metric small{font-size:1rem;color:var(--muted);letter-spacing:0}
+.compass-wrap{display:grid;place-items:center;padding:12px 0}.dial{width:min(68vw,270px);aspect-ratio:1;border:2px solid var(--line);border-radius:50%;position:relative;background:radial-gradient(circle,#1d3829,#0c1912 70%);box-shadow:inset 0 0 22px #0008}
+.tick{position:absolute;left:50%;top:7px;width:2px;height:12px;background:var(--muted);transform-origin:50% 128px}.label-n{position:absolute;left:50%;top:15px;transform:translateX(-50%);font-weight:800;color:var(--accent)}.needle{position:absolute;left:50%;top:50%;width:100%;height:100%;transform:translate(-50%,-50%);pointer-events:none}.needle:before{content:"";position:absolute;left:calc(50% - 3px);top:22px;width:6px;height:calc(50% - 22px);background:var(--accent);clip-path:polygon(50% 0,100% 100%,0 100%)}.center-dot{position:absolute;left:50%;top:50%;width:14px;height:14px;border-radius:50%;background:var(--text);transform:translate(-50%,-50%);border:3px solid var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{background:#0b1a12;border:1px solid var(--line);border-radius:12px;padding:11px}.stat span{display:block;color:var(--muted);font-size:.78rem}.stat strong{display:block;margin-top:4px;font-size:1.05rem;overflow-wrap:anywhere}
+#map{height:290px;border-radius:12px;overflow:hidden;background:#22352b}.prayers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.prayer{padding:10px;background:#0b1a12;border:1px solid var(--line);border-radius:11px;display:flex;justify-content:space-between;gap:8px}.prayer span{color:var(--muted)}
+footer{font-size:.78rem;color:var(--muted);padding:12px 2px}.leaflet-control-attribution{font-size:10px!important}
+@media(min-width:600px){#map{height:360px}.layout{display:grid;grid-template-columns:1fr 1fr;gap:12px}.layout .panel{margin:0}}
+</style>
+</head>
+<body><main>
+<header><div><h1>Qibla</h1><div class="muted">Prayer direction and times</div></div><span class="status" id="sensorStatus">Checking sensors</span></header>
+<section class="panel">
+<div class="muted">QIBLA BEARING FROM TRUE NORTH</div><div class="metric" id="bearing">--° <small>--</small></div>
+<div id="place" class="muted">Choose your location to begin.</div>
+<div class="compass-wrap"><div class="dial" aria-label="Compass dial"><span class="label-n">N</span><div class="needle" id="needle"></div><div class="center-dot"></div></div></div>
+<div class="stats">
+<div class="stat"><span>Distance to Kaaba</span><strong id="distance">--</strong></div>
+<div class="stat"><span>GPS accuracy</span><strong id="accuracy">Unknown</strong></div>
+<div class="stat"><span>Compass mode</span><strong id="mode">Map / bearing</strong></div>
+<div class="stat"><span>Heading</span><strong id="headingValue">Unavailable</strong></div>
+</div>
+<p class="hint" id="compassHint">If sensors are unavailable, use the bearing and north-up map as a reference.</p>
+</section>
+<div class="layout">
+<section class="panel"><h2>Location</h2><div class="row"><button class="primary" id="gps">Use GPS</button><button id="refresh">Refresh</button></div>
+<form id="cityForm" class="row" style="margin-top:9px"><input id="city" placeholder="Search city or place" aria-label="City or place"><button>Search</button></form>
+<form id="coordForm" class="row" style="margin-top:9px"><input id="lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" required><input id="lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" required><button>Set</button></form>
+<p class="hint">Your selected location is saved on this device. City search and new map tiles require internet.</p></section>
+<section class="panel"><h2>Prayer times</h2><div class="row"><select id="method" aria-label="Prayer time method"><option value="MWL">Muslim World League</option><option value="ISNA">ISNA</option><option value="EGYPT">Egyptian General Authority</option><option value="MAKKAH">Umm al-Qura (Makkah)</option><option value="KARACHI">Karachi</option><option value="TEHRAN">Tehran</option><option value="SINGAPORE">Singapore</option></select><select id="asr" aria-label="Asr calculation"><option value="standard">Standard Asr</option><option value="hanafi">Hanafi Asr</option></select></div>
+<div class="muted" id="prayerDate" style="margin:9px 0">Select a location</div><div class="prayers" id="prayers"></div><p class="hint">Astronomical estimates; confirm settings and times with a trusted local mosque.</p></section>
+</div>
+<section class="panel"><h2>Map</h2><div id="map" role="application" aria-label="Map with location and Qibla direction"></div><p class="hint">Green line shows the initial Qibla direction. Tiles cache as you view them, but this does not download whole regions for offline use.</p><div class="row"><button id="fit">Show Qibla line</button><button id="cacheNote">Offline map help</button></div><p class="hint" id="offlineNote">Calculations and saved settings work offline after the app has loaded.</p></section>
+<section class="panel"><h2>Settings</h2><div class="row"><label for="theme">Theme</label><select id="theme" style="max-width:180px"><option value="dark">Dark</option><option value="light">Light</option></select><button id="clear">Clear saved location</button></div><p class="hint">Qibla computes direction relative to true north. Compass accuracy depends on the phone sensor and magnetic interference.</p></section>
+<footer>Map data © OpenStreetMap contributors. City lookup uses OpenStreetMap Nominatim. Qibla calculations run locally. Prayer-time results are estimates, not a substitute for locally verified timetables.</footer>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="/qibla-engine.js"></script>
+<script>
+(() => {
+ const $=id=>document.getElementById(id), E=window.QiblaEngine, KAABA=[E.KAABA.lat,E.KAABA.lon];
+ let current=null, heading=null, marker=null, line=null, end=null, accuracyCircle=null, map=null, tileLayer=null, orientationSeen=false;
+ const saved=(()=>{try{return JSON.parse(localStorage.getItem('qibla.settings')||'{}')}catch{return {}}})();
+ function persist(){try{localStorage.setItem('qibla.settings',JSON.stringify({location:current,method:$('method').value,asr:$('asr').value,theme:$('theme').value}))}catch{}}
+ function setTheme(v){document.documentElement.style.colorScheme=v;if(v==='light'){document.documentElement.style.setProperty('--bg','#f3f7f3');document.documentElement.style.setProperty('--panel','#fff');document.documentElement.style.setProperty('--panel2','#e0eee4');document.documentElement.style.setProperty('--text','#13251c');document.documentElement.style.setProperty('--muted','#52645a');document.documentElement.style.setProperty('--line','#c5d7ca')}else{for(const [k,v] of Object.entries({'--bg':'#091510','--panel':'#13251c','--panel2':'#20382b','--text':'#edf7ef','--muted':'#a8b9ad','--line':'#30483b'}))document.documentElement.style.setProperty(k,v)}}
+ function initMap(){if(!window.L){$('offlineNote').textContent='Map library did not load. Qibla bearing and prayer calculations remain available.';return}map=L.map('map').setView([20,0],2);tileLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);L.marker(KAABA).addTo(map).bindPopup('Kaaba · Masjid al-Haram')}
+ function updatePrayer(){if(!current)return;const now=new Date(),offset=-now.getTimezoneOffset(),result=E.prayerTimes(current.lat,current.lon,now,{method:$('method').value,asr:$('asr').value,utcOffsetMinutes:offset});$('prayerDate').textContent=result.date+' · '+result.method+' · '+result.asr+' Asr';$('prayers').replaceChildren();for(const name of ['Fajr','Sunrise','Dhuhr','Asr','Maghrib','Isha']){const el=document.createElement('div');el.className='prayer';el.innerHTML='<span>'+name+'</span><strong>'+(result.times[name]||'Unavailable')+'</strong>';$('prayers').append(el)}if(result.unavailable)$('prayerDate').textContent+=' · '+result.message}
+ function render(){if(!current)return;const b=E.bearing(current.lat,current.lon),dist=E.distance(current.lat,current.lon);$('bearing').innerHTML=b.toFixed(1)+'° <small>'+E.direction(b)+'</small>';$('distance').textContent=Math.round(dist).toLocaleString()+' km';$('place').textContent=current.name||current.lat.toFixed(5)+', '+current.lon.toFixed(5);$('accuracy').textContent=current.accuracy==null?'Not available':'±'+Math.round(current.accuracy)+' m';if(!marker)marker=(typeof L!=='undefined'&&map)?L.marker([current.lat,current.lon]).addTo(map):null;else marker.setLatLng([current.lat,current.lon]);if(map){if(line)map.removeLayer(line);if(end)map.removeLayer(end);if(accuracyCircle)map.removeLayer(accuracyCircle);const p=[current.lat,current.lon],dest=E.destination(current.lat,current.lon,b,Math.max(500,dist+100));line=L.polyline([p,[dest.lat,dest.lon]],{color:'#24b86b',weight:5}).addTo(map);end=L.circleMarker([dest.lat,dest.lon],{radius:5,color:'#24b86b',fillOpacity:1}).addTo(map);if(current.accuracy>0&&current.accuracy<100000)accuracyCircle=L.circle(p,{radius:current.accuracy,color:'#e4b65c',fillOpacity:.08}).addTo(map);map.setView(p,Math.max(map.getZoom(),5))}updatePrayer();persist();updateCompass()}
+ function setLocation(lat,lon,name,accuracy=null){if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90||lat>90||lon < -180||lon>180){alert('Invalid coordinates.');return}current={lat,lon,name,accuracy};render()}
+ function requestGps(){if(window.QiblaNative){try{const raw=window.QiblaNative.getLocationJson();if(raw){const p=JSON.parse(raw);setLocation(p.latitude,p.longitude,p.name,p.accuracy);orientationPermission();return}}catch{}}if(!navigator.geolocation){alert('Location is not available yet. Grant location permission to Qibla and try again.');return}navigator.geolocation.getCurrentPosition(p=>setLocation(p.coords.latitude,p.coords.longitude,'Current GPS location',p.coords.accuracy),e=>alert(({1:'Location permission denied.',2:'Could not determine location. Try outdoors.',3:'Location request timed out.'})[e.code]||e.message),{enableHighAccuracy:true,timeout:30000,maximumAge:30000})}
+ function updateCompass(){if(!current)return;if(window.QiblaNative){try{const raw=window.QiblaNative.getTrueHeading(String(current.lat),String(current.lon));const nativeHeading=raw===''?NaN:Number(raw);if(Number.isFinite(nativeHeading))heading=nativeHeading}catch{}}const b=E.bearing(current.lat,current.lon);if(heading===null){$('needle').style.transform='translate(-50%,-50%) rotate('+b+'deg)';$('mode').textContent='Bearing only';$('headingValue').textContent='Unavailable';$('compassHint').textContent='This arrow points to Qibla relative to north. Without orientation sensor data, it cannot tell which way the phone is physically facing.'}else{$('needle').style.transform='translate(-50%,-50%) rotate('+(b-heading)+'deg)';$('mode').textContent='Live sensor';$('headingValue').textContent=heading.toFixed(0)+'° true north';$('compassHint').textContent='Keep the phone flat and away from magnets, speakers, and metal. Sensor heading is an estimate; calibrate if it drifts.'}}
+ async function orientationPermission(){try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')return}window.addEventListener('deviceorientationabsolute',onOrientation,true);window.addEventListener('deviceorientation',onOrientation,true)}catch{}}
+ function onOrientation(e){let h;if(Number.isFinite(e.webkitCompassHeading))h=e.webkitCompassHeading;else if(e.absolute===true&&Number.isFinite(e.alpha))h=(360-e.alpha)%360;else return;orientationSeen=true;heading=h;$('sensorStatus').textContent='Sensor detected';updateCompass()}
+ $('gps').onclick=requestGps;$('refresh').onclick=requestGps;$('gps').addEventListener('click',orientationPermission,{once:true});
+ $('cityForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('city').value.trim();if(!q)return;try{const r=await fetch('/api/geocode?q='+encodeURIComponent(q)),d=await r.json();if(!r.ok)throw Error(d.error||'Search failed');setLocation(d.latitude,d.longitude,d.name)}catch(err){alert(err.message)}});
+ $('coordForm').addEventListener('submit',e=>{e.preventDefault();setLocation(Number($('lat').value),Number($('lon').value),'Manual coordinates')});
+ $('method').onchange=updatePrayer;$('asr').onchange=updatePrayer;$('theme').onchange=e=>{setTheme(e.target.value);persist()};
+ $('fit').onclick=()=>{if(line&&map)map.fitBounds(line.getBounds().pad(.15))};$('cacheNote').onclick=()=>{$('offlineNote').textContent='Pan and zoom through the areas you want while online. Visited map tiles may be available offline. Bulk region downloads are not included.';if(navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'CACHE_MAP_VIEW'})};
+ $('clear').onclick=()=>{current=null;try{localStorage.removeItem('qibla.settings')}catch{}$('place').textContent='No saved location';$('bearing').textContent='--°';$('distance').textContent='--';$('accuracy').textContent='Unknown';$('prayers').replaceChildren();if(marker&&map)map.removeLayer(marker);if(line&&map)map.removeLayer(line);marker=line=null};
+ setTheme(saved.theme||'dark');$('theme').value=saved.theme||'dark';$('method').value=saved.method||'MWL';$('asr').value=saved.asr||'standard';initMap();
+ if(saved.location&&Number.isFinite(saved.location.lat)&&Number.isFinite(saved.location.lon)){current=saved.location;render()}else if(navigator.geolocation){$('place').textContent='Location not set. Use GPS or enter coordinates.'}
+ if('serviceWorker' in navigator)navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+ $('sensorStatus').textContent='Waiting for sensor';orientationPermission();
+ setInterval(()=>{if(current&&window.QiblaNative)updateCompass()},500);\n setTimeout(()=>{if(!orientationSeen&&!window.QiblaNative)$('sensorStatus').textContent='Map / bearing mode';if(map)map.invalidateSize()},800);
+})();
+</script></body></html>
