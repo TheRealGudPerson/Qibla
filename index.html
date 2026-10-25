@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10271f">
+<title>Qibla Finder</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--bg:#0b1713;--panel:#14251e;--panel2:#1c3329;--text:#edf7ef;--muted:#a7b9ad;--accent:#7de0a4;--border:#30483b;--warn:#ffd27a;--bad:#ff9d9d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:760px;margin:auto;padding:16px 14px 36px}header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 16px}
+h1{font-size:1.55rem;margin:0}h2{font-size:1.05rem;margin:0 0 10px}.sub{color:var(--muted);font-size:.88rem}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:15px;margin:12px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button,input{font:inherit;border-radius:11px;border:1px solid var(--border);padding:11px 12px}
+button{background:var(--panel2);color:var(--text);font-weight:650;cursor:pointer}button.primary{background:var(--accent);color:#092016;border-color:var(--accent)}
+button:disabled{opacity:.5}input{background:#09140f;color:var(--text);flex:1;width:100%}#city{min-width:140px}
+.metric{font-size:2rem;font-weight:800;letter-spacing:-.04em;color:var(--accent)}.metric small{font-size:.9rem;color:var(--muted);letter-spacing:0;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{background:#0c1a14;border:1px solid var(--border);border-radius:13px;padding:12px}
+.stat .label{font-size:.78rem;color:var(--muted)}.stat .value{font-size:1.08rem;font-weight:700;margin-top:3px;overflow-wrap:anywhere}
+#map{height:300px;border-radius:13px;overflow:hidden;background:#22352b}.notice{font-size:.88rem;color:var(--muted);margin:8px 0 0}
+.status{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:5px 9px;background:#20382b;font-size:.8rem}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}.error{color:var(--bad)}hr{border:0;border-top:1px solid var(--border);margin:14px 0}
+details summary{cursor:pointer;font-weight:700}details[open] summary{margin-bottom:12px}footer{font-size:.78rem;color:var(--muted);padding:10px 2px}
+.leaflet-container{font:inherit}.leaflet-control-attribution{font-size:10px!important}
+@media(min-width:600px){#map{height:380px}.metric{font-size:2.5rem}}
+</style>
+</head>
+<body><main>
+<header><div><h1>☾ Qibla Finder</h1><div class="sub">Orientation without a magnetometer</div></div><span class="status"><span class="dot"></span><span id="gpsStatus">No location</span></span></header>
+<section class="panel">
+<div class="sub">QIBLA BEARING · CLOCKWISE FROM TRUE NORTH</div><div class="metric" id="bearing">--° <small>--</small></div>
+<div id="placeName" class="sub">Choose GPS, search a city, or enter coordinates.</div><hr>
+<div class="stats">
+<div class="stat"><div class="label">Distance to Kaaba</div><div class="value" id="distance">--</div></div>
+<div class="stat"><div class="label">Location accuracy</div><div class="value" id="accuracy">Unknown</div></div>
+<div class="stat"><div class="label">Sun direction</div><div class="value" id="sunAz">--</div></div>
+<div class="stat"><div class="label">Sun vs Qibla</div><div class="value" id="sunRel">--</div></div>
+</div><p class="notice" id="confidence">Direction calculation is mathematical; physical orientation is not measured.</p>
+</section>
+<section class="panel"><h2>Location</h2><div class="row"><button class="primary" id="gpsBtn">Use current GPS</button><button id="refreshBtn">Refresh</button></div>
+<form id="cityForm" class="row" style="margin-top:10px"><input id="city" autocomplete="off" placeholder="City, state or country" aria-label="City, state or country"><button type="submit">Search city</button></form>
+<details style="margin-top:12px"><summary>Enter coordinates manually</summary><form id="coordsForm" class="row"><input id="lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" required><input id="lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" required><button type="submit">Use coordinates</button></form></details>
+<p class="notice">GPS may need a moment to obtain a fix. City search needs internet. Calculations work offline once coordinates are available.</p></section>
+<section class="panel"><h2>Map · North stays at the top</h2><div id="map" role="application" aria-label="Map showing your location and Qibla bearing"></div>
+<p class="notice">The green line shows the initial direction toward the Kaaba. The map is north-up and does not rotate with your phone. Use roads, buildings, or landmarks to relate the map to the real world.</p>
+<div class="row" style="margin-top:10px"><button id="recenterBtn">Center on location</button><button id="fitBtn">Show Qibla line</button></div></section>
+<section class="panel"><h2>Sun-position guide</h2><div id="sunMessage">Set a location to calculate the sun's position.</div>
+<p class="notice">Sun azimuth is calculated from location, date, and time. If the sun is visible, compare its real-world direction with the bearing shown above. This guide does not detect where you are facing. Do not look directly at the sun.</p></section>
+<section class="panel"><details><summary>Advanced: external heading reference</summary>
+<p class="notice">This app does not read the phone magnetometer. If you have a separate, trusted instrument that reports heading relative to <b>true north</b>, enter it here to calculate the Qibla angle relative to that heading. Do not enter a magnetic-compass heading unless corrected for magnetic declination.</p>
+<form id="headingForm" class="row"><input id="heading" type="number" min="0" max="359.99" step="any" placeholder="External true heading (°)" required><button type="submit">Calculate relative angle</button></form><div id="headingResult" style="margin-top:10px;font-weight:700"></div>
+</details></section>
+<footer>Qibla bearing is calculated relative to true north. Map tiles © OpenStreetMap contributors. City search uses OpenStreetMap Nominatim. Map and city search require internet. No heading sensors are used.</footer>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const kaaba = [21.422487,39.826206];
+  let current=null,userMarker=null,qiblaLine=null,qiblaEnd=null,accuracyCircle=null;
+  const map=L.map('map',{zoomControl:true}).setView([20,0],2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+  L.marker(kaaba).addTo(map).bindPopup('Kaaba · Masjid al-Haram');
+  function norm(d){return ((d%360)+360)%360}
+  function dir16(d){return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(norm(d)/22.5)%16]}
+  function bearing(lat,lon){const p=lat*Math.PI/180,k=kaaba[0]*Math.PI/180,dl=(kaaba[1]-lon)*Math.PI/180;return norm(Math.atan2(Math.sin(dl)*Math.cos(k),Math.cos(p)*Math.sin(k)-Math.sin(p)*Math.cos(k)*Math.cos(dl))*180/Math.PI)}
+  function distance(lat,lon){const p=lat*Math.PI/180,k=kaaba[0]*Math.PI/180,dl=(kaaba[1]-lon)*Math.PI/180,dp=k-p,a=Math.sin(dp/2)**2+Math.cos(p)*Math.cos(k)*Math.sin(dl/2)**2;return 2*6371.0088*Math.asin(Math.sqrt(Math.min(1,Math.max(0,a))))}
+  function destination(lat,lon,b,km){const R=6371.0088,d=km/R,br=b*Math.PI/180,p=lat*Math.PI/180,l=lon*Math.PI/180,p2=Math.asin(Math.sin(p)*Math.cos(d)+Math.cos(p)*Math.sin(d)*Math.cos(br)),l2=l+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(p),Math.cos(d)-Math.sin(p)*Math.sin(p2));return [p2*180/Math.PI,norm(l2*180/Math.PI+180)-180]}
+  function setStatus(msg,error=false){$('gpsStatus').textContent=msg;$('gpsStatus').className=error?'error':''}
+  function showLocation(lat,lon,name,acc=null,source='manual'){
+    if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -90||lat > 90||lon < -180||lon > 180){setStatus('Invalid coordinates',true);return}
+    current={lat,lon,name,acc,source};const b=bearing(lat,lon),dist=distance(lat,lon);
+    $('bearing').innerHTML=b.toFixed(1)+'° <small>'+dir16(b)+'</small>';$('distance').textContent=Math.round(dist).toLocaleString()+' km';
+    $('placeName').textContent=name||lat.toFixed(5)+', '+lon.toFixed(5);$('accuracy').textContent=acc==null?'Not available':'±'+Math.round(acc)+' m';
+    $('confidence').textContent=source==='GPS'?(acc<=20?'Good GPS fix. Bearing uses the reported position.':acc<=100?'Moderate GPS accuracy. Move to an open area for a better fix.':'Low GPS accuracy. Try outdoors or use a more precise location.'):source==='city'?'Approximate representative point for this city. Your exact bearing may differ slightly.':'Bearing calculated from the selected coordinates.';
+    setStatus(source==='GPS'?'GPS fix':source==='city'?'City selected':'Location set');
+    const point=[lat,lon],end=destination(lat,lon,b,Math.max(500,dist+100));
+    if(!userMarker)userMarker=L.marker(point).addTo(map);else userMarker.setLatLng(point);
+    userMarker.bindPopup((name||'Selected location')+'<br>'+lat.toFixed(5)+', '+lon.toFixed(5));
+    [qiblaLine,qiblaEnd,accuracyCircle].forEach(layer=>{if(layer)map.removeLayer(layer)});
+    qiblaLine=L.polyline([point,end],{color:'#24b86b',weight:5,opacity:.9}).addTo(map);
+    qiblaEnd=L.circleMarker(end,{radius:5,color:'#24b86b',fillOpacity:1}).addTo(map).bindPopup('Qibla bearing '+b.toFixed(1)+'° from true north');
+    accuracyCircle=acc>0&&acc<100000?L.circle(point,{radius:acc,color:'#e4b65c',weight:1,fillOpacity:.08}).addTo(map):null;
+    map.setView(point,Math.max(map.getZoom(),5));updateSun(lat,lon,b);updateHeadingResult();
+  }
+  function updateSun(lat,lon,b){
+    const now=new Date(),day=Math.floor((Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate())-Date.UTC(now.getUTCFullYear(),0,0))/86400000),hour=now.getUTCHours()+now.getUTCMinutes()/60+now.getUTCSeconds()/3600;
+    const g=2*Math.PI/365*(day-1+(hour-12)/24),eq=229.18*(.000075+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g));
+    const dec=.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)+.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g);
+    const mins=norm(hour*60+eq+4*lon),ha=mins/4-180,hr=ha*Math.PI/180,phi=lat*Math.PI/180,cz=Math.min(1,Math.max(-1,Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(hr))),elev=90-Math.acos(cz)*180/Math.PI;
+    const az=norm(Math.atan2(Math.sin(hr),Math.cos(hr)*Math.sin(phi)-Math.tan(dec)*Math.cos(phi))*180/Math.PI+180),diff=Math.abs(((az-b+540)%360)-180);
+    $('sunAz').textContent=az.toFixed(1)+'° '+dir16(az);$('sunRel').textContent=diff.toFixed(1)+'° apart';
+    $('sunMessage').innerHTML=elev>0?'<b>Sun above horizon (estimated).</b> Solar azimuth: <b>'+az.toFixed(1)+'° '+dir16(az)+'</b>; elevation: about <b>'+elev.toFixed(1)+'°</b>. Sun and Qibla bearings differ by '+diff.toFixed(1)+'°.':'<b>Sun below horizon (estimated).</b> Solar azimuth is '+az.toFixed(1)+'° '+dir16(az)+', but it cannot currently serve as a visible alignment reference.';
+  }
+  function updateHeadingResult(){if(!current)return;const h=parseFloat($('heading').value);if(!Number.isFinite(h)||h<0||h>=360){$('headingResult').textContent='';return}const d=((bearing(current.lat,current.lon)-h+540)%360)-180;$('headingResult').textContent='Turn '+Math.abs(d).toFixed(1)+'° '+(d>=0?'clockwise/right':'counterclockwise/left')+' from the external heading to face Qibla.'}
+  function gps(){if(!navigator.geolocation){setStatus('GPS unavailable',true);alert('This browser does not expose location. Try Chrome on Android and check site permissions.');return}setStatus('Getting GPS…');navigator.geolocation.getCurrentPosition(pos=>showLocation(pos.coords.latitude,pos.coords.longitude,'Current GPS location',pos.coords.accuracy,'GPS'),err=>{setStatus('GPS failed',true);alert(({1:'Location permission denied. Allow location for this site in browser settings.',2:'Could not determine location. Enable location services and try outdoors.',3:'Location request timed out. Try again.'})[err.code]||err.message)},{enableHighAccuracy:true,timeout:30000,maximumAge:30000})}
+  $('gpsBtn').addEventListener('click',gps);$('refreshBtn').addEventListener('click',gps);
+  $('recenterBtn').addEventListener('click',()=>{if(current)map.setView([current.lat,current.lon],Math.max(map.getZoom(),14))});
+  $('fitBtn').addEventListener('click',()=>{if(qiblaLine)map.fitBounds(qiblaLine.getBounds().pad(.15))});
+  $('cityForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('city').value.trim();if(!q)return;setStatus('Searching…');try{const r=await fetch('/api/geocode?q='+encodeURIComponent(q)),data=await r.json();if(!r.ok)throw new Error(data.error||'City lookup failed');showLocation(data.latitude,data.longitude,data.name,null,'city')}catch(err){setStatus('Search failed',true);alert(err.message)}});
+  $('coordsForm').addEventListener('submit',e=>{e.preventDefault();const lat=Number($('lat').value),lon=Number($('lon').value);if(lat < -90||lat>90||lon < -180||lon>180){alert('Latitude must be -90 to 90 and longitude -180 to 180.');return}showLocation(lat,lon,'Manual coordinates',null,'manual')});
+  $('headingForm').addEventListener('submit',e=>{e.preventDefault();const h=Number($('heading').value);if(!Number.isFinite(h)||h<0||h>=360){alert('Enter a true-north heading from 0° up to (but not including) 360°.');return}updateHeadingResult()});
+  $('heading').addEventListener('input',updateHeadingResult);setTimeout(()=>map.invalidateSize(),250);
+})();
+</script></body></html>
