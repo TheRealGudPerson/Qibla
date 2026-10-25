@@ -37,6 +37,8 @@ public class MainActivity extends Activity implements SensorEventListener {
     private LocationManager locationManager;
     private volatile float magneticAzimuth = Float.NaN;
     private volatile Location lastLocation;
+    private LocationListener locationListener;
+    private boolean locationUpdatesRegistered = false;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -89,14 +91,21 @@ public class MainActivity extends Activity implements SensorEventListener {
             Location network = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
             if (gps != null) lastLocation = gps;
             if (network != null && (lastLocation == null || network.getTime() > lastLocation.getTime())) lastLocation = network;
-            String provider = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
-            locationManager.requestLocationUpdates(provider, 1000L, 0f, new LocationListener() {
-                @Override public void onLocationChanged(Location location) { lastLocation = location; }
-                @Override public void onProviderEnabled(String provider) {}
-                @Override public void onProviderDisabled(String provider) {}
-                @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
-            });
-        } catch (SecurityException ignored) {}
+            if (!locationUpdatesRegistered) {
+                String provider = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+                if (locationListener == null) {
+                    locationListener = new LocationListener() {
+                        @Override public void onLocationChanged(Location location) { lastLocation = location; }
+                        @Override public void onProviderEnabled(String provider) {}
+                        @Override public void onProviderDisabled(String provider) {}
+                        @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+                    };
+                }
+                locationManager.requestLocationUpdates(provider, 1000L, 0f, locationListener);
+                locationUpdatesRegistered = true;
+            }
+        } catch (SecurityException | IllegalArgumentException ignored) {}
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -113,6 +122,11 @@ public class MainActivity extends Activity implements SensorEventListener {
     @Override protected void onPause() {
         super.onPause();
         sensorManager.unregisterListener(this);
+        if (locationUpdatesRegistered && locationListener != null) {
+            try { locationManager.removeUpdates(locationListener); }
+            catch (SecurityException ignored) {}
+            locationUpdatesRegistered = false;
+        }
     }
 
     @Override public void onSensorChanged(SensorEvent event) {
