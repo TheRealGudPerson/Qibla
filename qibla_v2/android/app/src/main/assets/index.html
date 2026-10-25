@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#10271f">
 <meta name="description" content="Qibla direction, prayer times, and offline Islamic utilities.">
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest">
 <title>Qibla</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -49,7 +49,7 @@ footer{font-size:.78rem;color:var(--muted);padding:12px 2px}.leaflet-control-att
 <section class="panel"><h2>Settings</h2><div class="row"><label for="theme">Theme</label><select id="theme" style="max-width:180px"><option value="dark">Dark</option><option value="light">Light</option></select><button id="clear">Clear saved location</button></div><p class="hint">Qibla computes direction relative to true north. Compass accuracy depends on the phone sensor and magnetic interference.</p></section>
 <footer>Map data © OpenStreetMap contributors. City lookup uses OpenStreetMap Nominatim. Qibla calculations run locally. Prayer-time results are estimates, not a substitute for locally verified timetables.</footer>
 </main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="/qibla-engine.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="qibla-engine.js"></script>
 <script>
 (() => {
  const $=id=>document.getElementById(id), E=window.QiblaEngine, KAABA=[E.KAABA.lat,E.KAABA.lon];
@@ -66,7 +66,7 @@ footer{font-size:.78rem;color:var(--muted);padding:12px 2px}.leaflet-control-att
  async function orientationPermission(){try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')return}window.addEventListener('deviceorientationabsolute',onOrientation,true);window.addEventListener('deviceorientation',onOrientation,true)}catch{}}
  function onOrientation(e){let h;if(Number.isFinite(e.webkitCompassHeading))h=e.webkitCompassHeading;else if(e.absolute===true&&Number.isFinite(e.alpha))h=(360-e.alpha)%360;else return;orientationSeen=true;heading=h;$('sensorStatus').textContent='Sensor detected';updateCompass()}
  $('gps').onclick=requestGps;$('refresh').onclick=requestGps;$('gps').addEventListener('click',orientationPermission,{once:true});
- $('cityForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('city').value.trim();if(!q)return;try{const r=await fetch('/api/geocode?q='+encodeURIComponent(q)),d=await r.json();if(!r.ok)throw Error(d.error||'Search failed');setLocation(d.latitude,d.longitude,d.name)}catch(err){alert(err.message)}});
+ $('cityForm').addEventListener('submit',async e=>{e.preventDefault();const q=$('city').value.trim();if(!q)return;try{let d;if(window.QiblaNative){const raw=window.QiblaNative.searchPlace(q);d=JSON.parse(raw||'{}');if(d.error)throw Error(d.error)}else{const r=await fetch('/api/geocode?q='+encodeURIComponent(q));d=await r.json();if(!r.ok)throw Error(d.error||'Search failed')}setLocation(d.latitude,d.longitude,d.name)}catch(err){alert(err.message)}});
  $('coordForm').addEventListener('submit',e=>{e.preventDefault();setLocation(Number($('lat').value),Number($('lon').value),'Manual coordinates')});
  $('method').onchange=updatePrayer;$('asr').onchange=updatePrayer;$('theme').onchange=e=>{setTheme(e.target.value);persist()};
  $('fit').onclick=()=>{if(line&&map)map.fitBounds(line.getBounds().pad(.15))};$('cacheNote').onclick=()=>{$('offlineNote').textContent='Pan and zoom through the areas you want while online. Visited map tiles may be available offline. Bulk region downloads are not included.';if(navigator.serviceWorker.controller)navigator.serviceWorker.controller.postMessage({type:'CACHE_MAP_VIEW'})};
