@@ -75,6 +75,7 @@ footer{font-size:.78rem;color:var(--muted);padding:12px 2px}.leaflet-control-att
  if(saved.location&&Number.isFinite(saved.location.lat)&&Number.isFinite(saved.location.lon)){current=saved.location;render()}else if(navigator.geolocation){$('place').textContent='Location not set. Use GPS or enter coordinates.'}
  if('serviceWorker' in navigator)navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
  $('sensorStatus').textContent='Waiting for sensor';orientationPermission();
- setInterval(()=>{if(current&&window.QiblaNative)updateCompass()},500);\n setTimeout(()=>{if(!orientationSeen&&!window.QiblaNative)$('sensorStatus').textContent='Map / bearing mode';if(map)map.invalidateSize()},800);
+ setInterval(()=>{if(current&&window.QiblaNative)updateCompass()},500);
+ setTimeout(()=>{if(!orientationSeen&&!window.QiblaNative)$('sensorStatus').textContent='Map / bearing mode';if(map)map.invalidateSize()},800);
 })();
 </script></body></html>
