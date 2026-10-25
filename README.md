@@ -43,7 +43,7 @@ Install Python 3, clone the repository, and run:
 
 ```sh
 git clone https://github.com/TheRealGudPerson/Qibla.git
-cd Qibla/qibla_v2
+cd Qibla
 python -m unittest -v
 python server.py
 ```
@@ -61,7 +61,7 @@ cd android
 gradle assembleDebug
 ```
 
-The expected debug APK path is `qibla_v2/android/app/build/outputs/apk/debug/app-debug.apk`.
+The expected debug APK path is `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 **Build status:** The Android project has not yet been built or tested on a physical device. This repository does not currently provide a signed release APK.
 
