@@ -21,6 +21,13 @@ import android.webkit.WebViewClient;
 import androidx.core.app.ActivityCompat;
 import android.content.Context;
 import java.util.Locale;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity implements SensorEventListener {
     private static final int LOCATION_PERMISSION = 41;
@@ -139,6 +146,36 @@ public class MainActivity extends Activity implements SensorEventListener {
             return String.format(Locale.US,
                 "{\"latitude\":%.7f,\"longitude\":%.7f,\"accuracy\":%.1f,\"name\":\"Current device location\"}",
                 location.getLatitude(), location.getLongitude(), location.getAccuracy());
+        }
+
+        @JavascriptInterface public String searchPlace(String query) {
+            HttpURLConnection connection = null;
+            try {
+                String encoded = URLEncoder.encode(query, "UTF-8");
+                URL url = new URL("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encoded);
+                connection = (HttpURLConnection)url.openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(15000);
+                connection.setRequestProperty("User-Agent", "Qibla/2.0 (personal use)");
+                connection.setRequestProperty("Accept-Language", "en");
+                StringBuilder body = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) body.append(line);
+                }
+                JSONArray results = new JSONArray(body.toString());
+                if (results.length() == 0) return "{\\"error\\":\\"Place not found. Add a state or country.\\"}";
+                JSONObject item = results.getJSONObject(0);
+                JSONObject result = new JSONObject();
+                result.put("latitude", Double.parseDouble(item.getString("lat")));
+                result.put("longitude", Double.parseDouble(item.getString("lon")));
+                result.put("name", item.optString("display_name", query));
+                return result.toString();
+            } catch (Exception e) {
+                return "{\\"error\\":\\"City lookup failed. Check internet and try again.\\"}";
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
         }
 
         @JavascriptInterface public boolean hasRotationSensor() { return rotationSensor != null; }
